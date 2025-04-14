@@ -90,16 +90,23 @@ Monitor Node
 
 ### Monitoring Structure
 
-
+監視用ノードは、以下の2つのシステムで構成されている。
+1. Block Explorer：
+    [Quorum Explorer](https://github.com/Consensys/quorum-explorer)はQuorumブロックチェーンネットワークの監視や管理を行うためのツールである。
+    ノードの稼働状況やトランザクションの進行状況、送信されたトランザクションの詳細や履歴を追跡することが可能である。
+    稼働していブロックチェーンノードのJSON-RPCへアクセスしデータを取得する。
+2. Metrics System：
+    Metrics Systemでは、ブロックチェーンノードの状態を受け取り、ダッシュボードで可視化するシステムである。
+    監視可能なメトリクスとしてCPUやメモリ、ディスク、ネットワーク、トランザクションの状態などが存在する。
+    Geth Clientから送信されたシステムの状態を時系列データベース(InfluxDB)に保存し、蓄積されたデータをダッシュボード(Grafana)で可視化する。
 
 ![Moniotoring Structure](../images/monitoring.png)
-
 
 ## Set Up
 
 ### Required Tools
 
-以下が必要なツールである。Goとgo-quorum、nvmのインストールの方法は後ほど説明する。
+以下が必要なツールである。GoとGoQuorum、nvmのインストールの方法は後ほど説明する。
 
 ブロックチェーンノード
 - Go(v1.24.0)
@@ -214,6 +221,7 @@ nvm use v22.14.0
 `※以下のコマンドはローカル端末で行う。`
 
 [quorum-genesis-tool](https://github.com/Consensys/quorum-genesis-tool)を活用してブロックチェーンノード設定の初期化を行う。
+もしノード数を変更したい場合はパラメータの`validators`の値を変更する。
 ```bash
 npx quorum-genesis-tool --consensus qbft --chainID 1337 --blockperiod 5 --requestTimeout 10 --epochLength 30000 --difficulty 1 --gasLimit '0xFFFFFF' --coinbase '0x0000000000000000000000000000000000000000' --validators 4 --members 0 --bootnodes 0 --outputPath 'artifacts'
 ```
@@ -265,30 +273,30 @@ vim static-nodes.json
 cp static-nodes.json permissioned-nodes.json
 ```
 
-ノードの設定ファイルを各ブロックチェーンノードへコピーする(USERとHOSTとNUMは適時書き換える)
-- USER：ユーザー名
+ノードの設定ファイルを各ブロックチェーンノードへコピーする(USER_NAMEとHOSTとNUMは適時書き換える)
+- USER_NAME：ユーザー名
 - HOST：IPアドレス
 - NUM：ブロックチェーンノードの番号
 ```bash
-scp static-nodes.json permissioned-nodes.json <USER>@<HOST>:~/QBFT-Network/Node-<NUM>/data
+scp static-nodes.json permissioned-nodes.json <USER_NAME>@<HOST>:~/QBFT-Network/Node-<NUM>/data
 ```
 例)
 ```bash
 scp static-nodes.json genesis.json ssdl_user@10.203.92.202:~/QBFT-Network/Node-0/data
 ```
 
-ノード鍵とアドレス設定のファイルを各ブロックチェーンノードへコピーする(USERとHOSTとNUMは適時書き換える)
+ノード鍵とアドレス設定のファイルを各ブロックチェーンノードへコピーする(USER_NAMEとHOSTとNUMは適時書き換える)
 ```bash
-scp validator<NUM>/nodekey* validator<NUM>/address <USER>@<HOST>:~/QBFT-Network/Node-0/data
+scp validator<NUM>/nodekey* validator<NUM>/address <USER_NAME>@<HOST>:~/QBFT-Network/Node-0/data
 ```
 例)
 ```bash
 scp validator0/nodekey* validator0/address ssdl_user@10.203.92.202:~/QBFT-Network/Node-0/data
 ```
 
-バリデータ用のファイルを各ブロックチェーンノードへコピーする(USERとHOSTとNUMは適時書き換える)
+バリデータ用のファイルを各ブロックチェーンノードへコピーする(USER_NAMEとHOSTとNUMは適時書き換える)
 ```bash
-scp validator<NUM>/account* <USER>@<HOST>:~/QBFT-Network/Node-0/data/keystore
+scp validator<NUM>/account* <USER_NAME>@<HOST>:~/QBFT-Network/Node-0/data/keystore
 ```
 例)
 ```bash
@@ -309,9 +317,75 @@ cd ~/QBFT-Network/Node-<NUM>
 geth --datadir data init data/genesis.json
 ```
 
+### Config Monitor Node
+
+1. Block Explorer：
+
+    まずリポジトリをクローンする
+    ```bash
+    git clone https://github.com/Consensys/quorum-explorer.git
+    ```
+
+    `quorum-explorer/src/config/config.json` の設定ファイルを接続先のブロックチェーンノードに変更する。
+    変更例は本リポジトリの `blockchain/config.json` を参照する。
+
+2. Metrics System：
+
+    まずInfluxDBとGrafanaのコンテナを起動するdocker-compose.ymlを作成する。
+    作成例は本レポジトリの `blockchain/docker-compose.yml` を参考にする。
+
+    コンテナを起動する。
+    ```bash
+    docker-compose up -d
+    ```
+
+    [http://localhost:8086](http://localhost:8086)にアクセスし、gethのbucketを作成する。
+    bucket名は`geth`とし、作成したBucketのIDをメモしておく。
+    ![Create Bucket](../images/bucket.png)
+
+    つぎにv1におけるユーザーを設定することでこれにより外部からユーザー名・パスワードを利用してアクセスを可能にしておく。
+
+    コンテナのターミナルへアタッチする
+    ```bash
+    docker-compose exec influxdb /bin/bash
+    ```
+    
+    ユーザー名とパスワードを設定する(BUCKET_IDは先ほどメモしたIDを指定する)
+    ```bash
+    influx v1 auth create --username <USER_NAME> --password <PASSWORD> --read-bucket <BUCKET_ID> --write-bucket <BUCKET_ID>
+    ```
+
+    最後にGrafanaを活用したダッシュボードの設定を行う。
+
+    まずInfluxDB([http://localhost:8085](http://localhost:8085))にアクセスしAPI Tokenの発行を行う。トークン名は自由だがかならずトークンはメモをとっておく。
+    ![Issue Token](../images/token.png)
+
+    次に[http://localhost:8085](http://localhost:8085)にアクセスし、GrafanaのDB接続設定を行う。
+    Data SourceからInfluxDBを選択し追加する。
+    ![Add InfluxDB](../images/datasource.png)
+
+    接続先のURLには[http://localhost:8085](http://localhost:8085)、Organizationはorganization、Tokenは先ほどメモしたトークンを設定する。
+    ![Config Auth](../images/auth.png)
+
+    その後Dashbordのタブをクリックし、新しいダッシュボードを作成する。
+    `blockchain/geth-1744615649979.json`のファイルをインポートする。 
+
+    参考
+    - InfluxDB v2 のインストールや v1 からの移行について、https://tech.aptpod.co.jp/entry/2022/03/04/130000
+    - InfluxDB+Grafana構築 on docker、https://qiita.com/7280ayubihs/items/ace07b14d934dca4744c
+
 ## Start Up
 
-###
+### Start Up Monitor Node
+
+監視システムを起動する
+```bash
+docker-compose up -d
+```
+
+起動が完了したら、以下のURLからアクセスする
+- 時系列DB(InfluDB)：[http://localhost:8086](http://localhost:8086)
+- ダッシュボード(Grafana)：[http://localhost:8085](http://localhost:8085)
 
 ### Start Up Blockchain Node
 
