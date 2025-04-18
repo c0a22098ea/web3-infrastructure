@@ -115,28 +115,32 @@ export default function MyNFT() {
       // console.log(data);
       setLoading(true);
       try {
-        await axios.post("http://10.203.92.63:8080/up-ipfs", formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-          .then(async (response) => {
-            if (response.data.success === true) {
+        const response = await axios.post("http://10.203.92.63:5001/api/v0/add", formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+        console.log("response", response);
+          // .then(async (response) => {
+          //   if (response.data.success === true) {
 
-              const account = ref.current!.value;
-              // MyERC721コントラクトにNFT作成（safeMint）トランザクションを発行
-              // アップロードした画像情報が入ったメタデータハッシュを取得
-              const metadataHash = response.data.metadataHash;
-              console.log("メタデータハッシュはこの値", metadataHash);
-              const url = 'http://10.203.92.63:8080/ipfs/' + metadataHash;
-              console.log(url);
-              // メタデータハッシュのURLを指定してNFTを発行する
-              await myERC721Contract?.safeMint(account, url);
-              // 成功した場合はアラートを表示する
-              setShowAlert(true);
-              setAlertMessage(`NFT minted and sent to the wallet ${account?.slice(0, 6) +
-                '...' + account?.slice(-2)}. Enjoy your NFT!`)
+          //     const account = ref.current!.value;
+          //     // MyERC721コントラクトにNFT作成（safeMint）トランザクションを発行
+          //     // アップロードした画像情報が入ったメタデータハッシュを取得
+          //     const metadataHash = response.data.metadataHash;
+          //     console.log("メタデータハッシュはこの値", metadataHash);
+          //     const url = 'http://10.203.92.63:8080/ipfs/' + metadataHash;
+          //    console.log(url);
+          //     // メタデータハッシュのURLを指定してNFTを発行する
+          //     await myERC721Contract?.safeMint(account, url);
+          //     // 成功した場合はアラートを表示する
+          //     setShowAlert(true);
+          //     setAlertMessage(`NFT minted and sent to the wallet ${account?.slice(0, 6) +
+          //       '...' + account?.slice(-2)}. Enjoy your NFT!`)
 
-            } else {
-              window.alert("アップロードできませんでした");
-            }
-          });
+          //   } else {
+          //     window.alert("アップロードできませんでした");
+          //   }
+          // });
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        window.alert("アップロードできませんでした");
       } finally {
         setLoading(false);
       }
