@@ -8,7 +8,7 @@ go-ipfsのインストール。すでにインストール済みの場合は次�
 ```bash
 $ wget https://dist.ipfs.io/go-ipfs/vX.X.X/go-ipfs_vX.X.X_linux-amd64.tar.gz    #URLは、環境やバージョンにより適宜変更してください。
 $ tar xvzf go-ipfs_vX.X.X_linux-amd64.tar.gz
-$ cd go-ipfs/
+$ cd go-ipfs/ # go-ipfsディレクトリに移動する
 $ sudo ./install.sh
 ```
 ipfs versionコマンドを実行しバージョン情報が表示されば問題なくインストールができている。
@@ -42,6 +42,7 @@ configファイルのAddress部分の要素
 ~/.ipfs/config
 "API": "/ip4/x.x.x.x/tcp/ポート",
 "Gateway": "/ip4/x.x.x.x/tcp/ポート"
+# x.x.x.xは自身のIPアドレスに変更する
 ```
 
 ```bash
@@ -51,6 +52,7 @@ configファイルのAddress部分の要素
       "http://x.x.x.x:ポート",
       "http://x.x.x.x:ポート"
     ]
+    # x.x.x.xは自身のIPアドレスに変更する
 ```
 
 ### 秘密鍵の生成と配備
@@ -59,7 +61,8 @@ configファイルのAddress部分の要素
 go install github.com/Kubuxu/go-ipfs-swarm-key-gen/ipfs-swarm-key-gen@latest
 ipfs-swarm-key-gen > ~/.ipfs/swarm.key
 # 二行目は環境によってパスが変わるので要注意
-scp ~/.ipfs/swarm.key アカウント名@x.x.x.x:~/.ipfs/ #送りたいIPFSに配備する
+scp ~/.ipfs/swarm.key アカウント名@x.x.x.x:~/.ipfs/
+# x.x.x.xは送りたいIPFSに配備する
 ```
 ### bootstrapノードの設定
 bootstrapノードとは、IPFSノード起動時に通信接続を試みるノードのことである。
@@ -72,6 +75,7 @@ ipfs bootstrap rm --all
 1.次にbootstrapノードの設定を行う。
 ```bash
 ipfs bootstrap add /ip4/x.x.x.x/tcp/ポート/p2p/ipfsのpeerID
+# x.x.x.xは自身のIPアドレスに変更する
 ```
 
 ### IPFSの起動
