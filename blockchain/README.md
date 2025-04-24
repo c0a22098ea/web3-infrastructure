@@ -30,7 +30,7 @@ Node-0(spade)
     - 22000(RPC-URL HTTP)
     - 32000(RPC-URL WS)
     - 30300(P2P)
-    - 20(SSH)
+    - 22(SSH)
 - Windows10にWSLをインストール
 - ポートフォワーディングを設定してWindowsからWSLに接続
 
@@ -42,7 +42,7 @@ Node-1(club)
     - 22000(RPC-URL HTTP)
     - 32000(RPC-URL WS)
     - 30300(P2P)
-    - 20(SSH)
+    - 22(SSH)
 - 外部HDDにOSをインストール
 
 Node-2(diamond)
@@ -53,7 +53,7 @@ Node-2(diamond)
     - 22000(RPC-URL HTTP)
     - 32000(RPC-URL WS)
     - 30300(P2P)
-    - 20(SSH)
+    - 22(SSH)
 - 外部SSDにOSをインストール
 
 Node-3(heart)
@@ -64,7 +64,7 @@ Node-3(heart)
     - 22000(RPC-URL HTTP)
     - 32000(RPC-URL WS)
     - 30300(P2P)
-    - 20(SSH)
+    - 22(SSH)
 - 外部SSDにOSをインストール
 
 Monitor Node
@@ -75,6 +75,7 @@ Monitor Node
     - 25000(Block Explorer)
     - 8086(InfluxDB)
     - 8085(Grafana)
+    - 22(SSH)
 
 以下にシステムアーキテクチャを示す。
 - ブロックチェーンノード：
@@ -111,6 +112,7 @@ Monitor Node
 ブロックチェーンノード
 - Go(v1.24.0)
 - GoQuorum(v24.4.1)
+- crontab
 
 監視ノード
 - Docker
@@ -321,13 +323,15 @@ geth --datadir data init data/genesis.json
 
 1. Block Explorer：
 
-    まずリポジトリをクローンする
-    ```bash
-    git clone https://github.com/Consensys/quorum-explorer.git
-    ```
+    エクスプローラーのノードの接続先とアプリケーションのパラメータを設定する。
+    まずquorum-explorerのコンテナを起動するdocker-compose.ymlを作成する。
+    作成例は本レポジトリの `blockchain/docker-compose.yml` を参考にする。
 
-    `quorum-explorer/src/config/config.json` の設定ファイルを接続先のブロックチェーンノードに変更する。
+    `explorer/config.json` の設定ファイルを接続先のブロックチェーンノードに変更する。
     変更例は本リポジトリの `blockchain/config.json` を参照する。
+
+    `.env.production` の設定ファイルからアプリケーションを設定する。
+    変更例は本リポジトリの `blockchain/.env.production` を参照する。
 
 2. Metrics System：
 
@@ -404,7 +408,39 @@ export ADDRESS=$(grep -o '"address": *"[^"]*"' ./data/keystore/accountKeystore |
 export PRIVATE_CONFIG=ignore
 ```
 
-以下のコマンドでGoQuorumをバックエンドで起動する
+以下のコマンド例でGoQuorumをバックエンドで起動する。
+
+ブロックチェーンノード単体で起動する場合のコマンド例
 ```bash
-nohup geth --datadir data --networkid 1337 --nodiscover --verbosity 5 --syncmode full --istanbul.blockperiod 5 --mine --miner.threads 1 --miner.gasprice 0 --emitcheckpoints --http --http.addr 0.0.0.0 --http.port 22000 --http.corsdomain "*" --http.vhosts "*" --ws --ws.addr 0.0.0.0 --ws.port 32000 --ws.origins "*" --http.api admin,eth,debug,miner,net,txpool,personal,web3,istanbul --ws.api admin,eth,debug,miner,net,txpool,personal,web3,istanbul --unlock ${ADDRESS} --allow-insecure-unlock --password ./data/keystore/accountPassword --port 30300 --metrics --metrics.influxdb --metrics.influxdb.endpoint "http://10.203.92.92:8086" --metrics.influxdb.username "node-0" --metrics.influxdb.password "password" --metrics.influxdb.tags "host=node-0" > geth.log &
+nohup geth --datadir data --networkid 1337 --nodiscover --verbosity 5 --syncmode full --istanbul.blockperiod 5 --mine --miner.threads 1 --miner.gasprice 0 --emitcheckpoints --http --http.addr 0.0.0.0 --http.port 22000 --http.corsdomain "*" --http.vhosts "*" --ws --ws.addr 0.0.0.0 --ws.port 32000 --ws.origins "*" --http.api admin,eth,debug,miner,net,txpool,personal,web3,istanbul --ws.api admin,eth,debug,miner,net,txpool,personal,web3,istanbul --unlock ${ADDRESS} --allow-insecure-unlock --password ./data/keystore/accountPassword --port 30300 > geth.log &
+```
+
+監視ノードを利用した場合のコマンド例
+- --metrics: Gethのメトリクス収集を有効化
+- --metrics.influxdb: InfluxDBにメトリクスを送信する機能を有効化
+- --metrics.influxdb.endpoin: 監視ノードのエンドポイントを指定
+- --metrics.influxdb.username: InfluxDBにアクセスするためのユーザー名を指定
+- --metrics.influxdb.password: InfluxDBにアクセスするためのパスワードを指定
+- --metrics.influxdb.tags: メトリクスデータを分類・フィルタリングするためのタグを追加
+```bash
+nohup geth --datadir data --networkid 1337 --nodiscover --verbosity 5 --syncmode full --istanbul.blockperiod 5 --mine --miner.threads 1 --miner.gasprice 0 --emitcheckpoints --http --http.addr 0.0.0.0 --http.port 22000 --http.corsdomain "*" --http.vhosts "*" --ws --ws.addr 0.0.0.0 --ws.port 32000 --ws.origins "*" --http.api admin,eth,debug,miner,net,txpool,personal,web3,istanbul --ws.api admin,eth,debug,miner,net,txpool,personal,web3,istanbul --unlock ${ADDRESS} --allow-insecure-unlock --password ./data/keystore/accountPassword --port 30300 --metrics --metrics.influxdb --metrics.influxdb.endpoint "http://10.203.92.92:8086" --metrics.influxdb.username "geth" --metrics.influxdb.password "password" --metrics.influxdb.tags "host=node-0" > geth.log &
+```
+
+### Stop Blockchain Node
+
+go-quorumを停止する場合は、以下のコマンドからプロセスを終了する。
+```bash
+/usr/bin/killall geth
+```
+
+もし定時で停止する場合はcrontabを活用する。
+初回起動の場合は2を押してvimを用いて設定ファイルを開く。
+```bash
+crontab -e
+```
+
+vimで開いたファイルに以下を追記する。
+以下のコマンドの例では、0時15分に定期停止することが可能になる。
+```bash
+15 0 * * * /usr/bin/killall geth
 ```
